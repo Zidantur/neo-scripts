@@ -2,11 +2,7 @@
 
 These are just some tools I made to make my Neopets experience a little better. Maybe they’ll help you enjoy the site more, too!
 
-## About
-
-All scripts here are designed to enhance various aspects of the Neopets website. Each is provided as a `.user.js` file for easy installation via Tampermonkey, Greasemonkey, Violentmonkey, or similar userscript managers.
-
-### How to Install
+## How to Install
 
 To install a script:
 
