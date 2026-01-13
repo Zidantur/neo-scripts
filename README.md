@@ -15,7 +15,7 @@ This works for Tampermonkey, Greasemonkey, Violentmonkey, and most other userscr
 ## Scripts
 
 -   [ignore-user-posts.user.js](ignore-user-posts.user.js):
-    -   **Ignore Users on Neoboards** – Hide posts from specific users on the Neopets Neoboards. Features a management panel to add or remove ignored users, and automatically hides their posts.
+    -   **Ignore Users on Neoboards** – Hide posts from specific users on the Neopets Neoboards. Features a management panel to add or remove ignored users, and hides their posts.
 
 ## License
 
