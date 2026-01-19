@@ -10,7 +10,7 @@ To install a script:
 -   Click the "Raw" button at the top right of the file view.
 -   Your userscript manager (such as Tampermonkey) should prompt you to install the script automatically.
 
-This works for Tampermonkey, Greasemonkey, Violentmonkey, and most other userscript managers.
+This works for Tampermonkey, Violentmonkey, and most other userscript managers.
 
 ## Scripts
 
