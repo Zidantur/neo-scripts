@@ -1765,8 +1765,8 @@
                 <div style="display: flex; gap: 8px; justify-content: flex-end;">
                     ${
                         isOnLookupPage
-                            ? `<button id="kotb-return-dashboard-btn" title="Return to Dashboard" style="background: ${theme.buttonBg}; color: ${theme.buttonText}; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 11pt; font-weight: bold;">
-                        🏠 Dashboard
+                            ? `<button id="kotb-return-dashboard-btn" title="Return to KOTB Petpage" style="background: ${theme.buttonBg}; color: ${theme.buttonText}; border: none; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 11pt; font-weight: bold;">
+                        KOTB Petpage
                     </button>`
                             : ""
                     }
@@ -1803,7 +1803,7 @@
     }
 
     function attachModalListeners(modal) {
-        // Return to Dashboard button
+        // Return to KOTB Petpage button
         const returnBtn = modal.querySelector("#kotb-return-dashboard-btn");
         if (returnBtn) {
             returnBtn.addEventListener("click", () => {
