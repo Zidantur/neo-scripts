@@ -14,6 +14,15 @@ This works for Tampermonkey, Greasemonkey, Violentmonkey, and most other userscr
 
 ## Scripts
 
+-   [KOTB.js](KOTB.js):
+
+    -   **King of the Battledome (KOTB) Stats Tracker** – Tool for tracking and managing KOTB pet statistics. Features include:
+        -   Stats collection with guided or manual navigation through user lookups and pet pages
+        -   View and sort collected stats by date
+        -   Compare stats between two dates
+        -   Export comparison data to CSV with KOTB rankings and guild points
+        -   Light and dark theme support
+
 -   [ignore-user-posts.user.js](ignore-user-posts.user.js):
     -   **Ignore Users on Neoboards** – Hide posts from specific users on the Neopets Neoboards. Features a management panel to add or remove ignored users, and hides their posts.
 
