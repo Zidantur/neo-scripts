@@ -196,12 +196,16 @@
 
     async function addPairing(owner, pet) {
         const pairings = await getOwnerPetPairings();
+        const normalizedOwner = owner.toLowerCase();
 
-        // Check for duplicates
-        const exists = pairings.some((p) => p.owner === owner && p.pet === pet);
+        const exists = pairings.some(
+            (p) =>
+                p.owner.toLowerCase() === normalizedOwner &&
+                p.pet.toLowerCase() === pet.toLowerCase()
+        );
 
         if (!exists) {
-            pairings.push({ owner, pet });
+            pairings.push({ owner: normalizedOwner, pet });
             await saveOwnerPetPairings(pairings);
             return true;
         }
