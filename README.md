@@ -14,7 +14,7 @@ This works for Tampermonkey, Greasemonkey, Violentmonkey, and most other userscr
 
 ## Scripts
 
--   [KOTB.js](KOTB.js):
+-   [KOTB.js](KOTB.user.js):
 
     -   **King of the Battledome (KOTB) Stats Tracker** – Tool for tracking and managing KOTB pet statistics. Features include:
         -   Stats collection with guided or manual navigation through user lookups and pet pages
