@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         PW KOTB Helper
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Assists with collecting KOTB stats
 // @author       You
 // @match        https://www.neopets.com/editpage.phtml*
@@ -83,26 +83,6 @@
             sideToggleBgHover: "#3a3a3a",
         },
     };
-
-    // These are on pet owner userlookup
-    const ALL_PETS_CONTAINERS_SELECTOR =
-        'document.querySelector("#bxlist").querySelectorAll("center")';
-    const PET_NAME_FROM_CONTAINERS_SELECTOR =
-        'container.querySelector("b").innerText.trim()';
-    const PET_LEVEL_FROM_CONTAINERS_SELECTOR =
-        'container.querySelectorAll("b")[3].nextSibling.textContent.trim()';
-
-    // These are on petlookup
-    const PET_STATS_TD_SELECTOR =
-        'document.querySelectorAll(".contentModuleContent")[1].querySelector("table").querySelectorAll("td")[1]';
-    const PET_HP_SELECTOR =
-        "petStatsTd.querySelectorAll(\"b\")[2].textContent.split('/')[1].trim()";
-    const PET_STRENGTH_SELECTOR =
-        "petStatsTd.querySelectorAll(\"b\")[3].nextSibling.textContent.split('(')[1].split(')')[0]";
-    const PET_DEFENCE_SELECTOR =
-        "petStatsTd.querySelectorAll(\"b\")[4].nextSibling.textContent.split('(')[1].split(')')[0]";
-    const PET_MOVEMENT_SELECTOR =
-        "petStatsTd.querySelectorAll(\"b\")[5].nextSibling.textContent.split('(')[1].split(')')[0]";
 
     // ==================== CONFIGURATION ====================
     const CONFIG = {
@@ -201,7 +181,7 @@
         const exists = pairings.some(
             (p) =>
                 p.owner.toLowerCase() === normalizedOwner &&
-                p.pet.toLowerCase() === pet.toLowerCase()
+                p.pet.toLowerCase() === pet.toLowerCase(),
         );
 
         if (!exists) {
@@ -215,7 +195,7 @@
     async function removePairing(owner, pet) {
         const pairings = await getOwnerPetPairings();
         const filtered = pairings.filter(
-            (p) => !(p.owner === owner && p.pet === pet)
+            (p) => !(p.owner === owner && p.pet === pet),
         );
 
         if (filtered.length !== pairings.length) {
@@ -380,40 +360,139 @@
     }
 
     // ==================== DOM EXTRACTION FUNCTIONS ====================
+    /**
+     * Waits for an element to exist in the DOM
+     * @param {string} selector - CSS selector to wait for
+     * @param {number} timeout - Timeout in milliseconds (default 10000)
+     * @returns {Promise<Element>} - Resolves with the element when found
+     */
+    function waitForElement(selector, timeout = 10000) {
+        return new Promise((resolve, reject) => {
+            const element = document.querySelector(selector);
+            if (element) {
+                return resolve(element);
+            }
+
+            const observer = new MutationObserver(() => {
+                const element = document.querySelector(selector);
+                if (element) {
+                    observer.disconnect();
+                    resolve(element);
+                }
+            });
+
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+            });
+
+            setTimeout(() => {
+                observer.disconnect();
+                reject(new Error(`Timeout waiting for selector: ${selector}`));
+            }, timeout);
+        });
+    }
+
+    /**
+     * Validates that a value is a number within reasonable bounds
+     */
+    // function isValidStat(value, min, max) {
+    //     const num = parseInt(value);
+    //     return !isNaN(num) && num >= min && num <= max;
+    // }
+
     async function retryExtraction(
         extractionFn,
         maxAttempts = 3,
-        delays = [0, 2000, 5000]
+        delays = [0, 2000, 5000],
     ) {
         for (let i = 0; i < maxAttempts; i++) {
             if (delays[i] > 0) {
                 await new Promise((resolve) => setTimeout(resolve, delays[i]));
             }
 
-            const result = extractionFn();
+            const result = await extractionFn();
+
+            // Validate result
             if (result !== null && result !== undefined) {
-                return result;
+                // For boolean results (verification), accept true
+                if (typeof result === "boolean") {
+                    if (result === true) {
+                        return result;
+                    }
+                }
+                // For object results (stats), validate all properties
+                else if (typeof result === "object") {
+                    const allValid =
+                        parseInt(result.hp) &&
+                        parseInt(result.strength) &&
+                        parseInt(result.defence) &&
+                        parseInt(result.movement);
+
+                    if (allValid) {
+                        return result;
+                    }
+                }
+                // For single number results (level), validate range
+                else if (typeof result === "number") {
+                    if (parseInt(result)) {
+                        return result;
+                    }
+                }
             }
 
             console.log(
                 `Extraction attempt ${i + 1} failed, ${
                     i < maxAttempts - 1 ? "retrying..." : "giving up"
-                }`
+                }`,
             );
         }
         return null;
     }
 
-    function extractLevelForPet(targetPetName) {
+    async function extractLevelForPet(targetPetName) {
         try {
-            const containers = eval(ALL_PETS_CONTAINERS_SELECTOR);
-            for (const container of containers) {
-                const petName = eval(PET_NAME_FROM_CONTAINERS_SELECTOR);
-                if (petName === targetPetName) {
-                    const level = eval(PET_LEVEL_FROM_CONTAINERS_SELECTOR);
-                    return parseInt(level);
+            // Wait for the pet list to load
+            await waitForElement("#bxlist");
+
+            // Find all center elements within the pet list
+            const bxlist = document.querySelector("#bxlist");
+            if (!bxlist) {
+                console.error("Could not find #bxlist element");
+                return null;
+            }
+
+            const centers = bxlist.querySelectorAll("center");
+
+            // Search for the target pet by name
+            for (const center of centers) {
+                const innerHTML = center.innerHTML;
+
+                // Check if this center contains the target pet name
+                const petNameMatch = innerHTML.match(/<b>([^<]+)<\/b>/);
+                if (petNameMatch && petNameMatch[1] === targetPetName) {
+                    // Extract level using regex - matches "Level:</b> 123" or "Level:</b> <b>123</b>"
+                    const levelMatch = innerHTML.match(
+                        /Level:\s*<\/b>\s*(?:<b>)?(\d+)(?:<\/b>)?/,
+                    );
+
+                    if (levelMatch && levelMatch[1]) {
+                        const level = parseInt(levelMatch[1]);
+                        console.log(
+                            `Extracted level ${level} for ${targetPetName}`,
+                        );
+                        return level;
+                    } else {
+                        console.error(
+                            `Found pet ${targetPetName} but could not extract level. HTML:`,
+                            innerHTML.substring(0, 500),
+                        );
+                        return null;
+                    }
                 }
             }
+
+            console.error(`Could not find pet ${targetPetName} in userlookup`);
             return null;
         } catch (error) {
             console.error("Error extracting level:", error);
@@ -421,13 +500,82 @@
         }
     }
 
-    function extractPetStats() {
+    async function extractPetStats() {
         try {
-            const petStatsTd = eval(PET_STATS_TD_SELECTOR);
-            const hp = parseInt(eval(PET_HP_SELECTOR));
-            const strength = parseInt(eval(PET_STRENGTH_SELECTOR));
-            const defence = parseInt(eval(PET_DEFENCE_SELECTOR));
-            const movement = parseInt(eval(PET_MOVEMENT_SELECTOR));
+            // Wait for content modules to load
+            await waitForElement(".contentModuleContent");
+
+            // Find the table cell containing Battledome stats
+            const contentModules = document.querySelectorAll(
+                ".contentModuleContent",
+            );
+            let statsTd = null;
+
+            for (const module of contentModules) {
+                if (module.innerHTML.includes("- Battledome Stats -")) {
+                    // Find the td with the stats (should be on the right side)
+                    const tds = module.querySelectorAll("td");
+                    for (const td of tds) {
+                        if (td.innerHTML.includes("Hit Points:")) {
+                            statsTd = td;
+                            break;
+                        }
+                    }
+                    if (statsTd) break;
+                }
+            }
+
+            if (!statsTd) {
+                console.error("Could not find Battledome stats section");
+                return null;
+            }
+
+            const innerHTML = statsTd.innerHTML;
+
+            // Extract HP - format: "Hit Points:</b> <font color="green"><b>3159 / 3159</b></font>"
+            const hpMatch = innerHTML.match(/Hit Points:.*?(\d+)\s*\/\s*(\d+)/);
+            if (!hpMatch || !hpMatch[2]) {
+                console.error(
+                    "Could not extract HP. HTML:",
+                    innerHTML.substring(0, 500),
+                );
+                return null;
+            }
+            const hp = parseInt(hpMatch[2]); // Use max HP (second number)
+
+            // Extract Strength - format: "Strength:</b> ULTIMATE (1283)"
+            const strengthMatch = innerHTML.match(/Strength:.*?\((\d+)\)/);
+            if (!strengthMatch || !strengthMatch[1]) {
+                console.error(
+                    "Could not extract Strength. HTML:",
+                    innerHTML.substring(0, 500),
+                );
+                return null;
+            }
+            const strength = parseInt(strengthMatch[1]);
+
+            // Extract Defence - format: "Defence:</b> ULTIMATE (970)"
+            const defenceMatch = innerHTML.match(/Defence:.*?\((\d+)\)/);
+            if (!defenceMatch || !defenceMatch[1]) {
+                console.error(
+                    "Could not extract Defence. HTML:",
+                    innerHTML.substring(0, 500),
+                );
+                return null;
+            }
+            const defence = parseInt(defenceMatch[1]);
+
+            // Extract Movement - format: "Movement:</b> ULTIMATE (1139)"
+            const movementMatch = innerHTML.match(/Movement:.*?\((\d+)\)/);
+            if (!movementMatch || !movementMatch[1]) {
+                console.error(
+                    "Could not extract Movement. HTML:",
+                    innerHTML.substring(0, 500),
+                );
+                return null;
+            }
+            const movement = parseInt(movementMatch[1]);
+
             return { hp, strength, defence, movement };
         } catch (error) {
             console.error("Error extracting stats:", error);
@@ -494,7 +642,7 @@
         for (let i = 0; i < pairings.length; i++) {
             const hasStats = await checkIfStatsComplete(
                 dateKey,
-                pairings[i].pet
+                pairings[i].pet,
             );
             if (!hasStats) {
                 remainingCount++;
@@ -505,7 +653,7 @@
             !confirm(
                 `Collect stats for ${remainingCount} ${
                     remainingCount === 1 ? "pet" : "pets"
-                }? This will navigate through multiple pages.`
+                }? This will navigate through multiple pages.`,
             )
         ) {
             return;
@@ -543,7 +691,7 @@
         const dateKey = getEndDateKey();
         const levelAlreadyComplete = await checkIfLevelComplete(
             dateKey,
-            currentPairing.pet
+            currentPairing.pet,
         );
 
         let extractedLevel = null;
@@ -551,13 +699,13 @@
         if (!levelAlreadyComplete) {
             // Retry extraction with delays if not found
             extractedLevel = await retryExtraction(() =>
-                extractLevelForPet(currentPairing.pet)
+                extractLevelForPet(currentPairing.pet),
             );
             if (extractedLevel === null) {
                 console.error(
                     "Could not extract level for",
                     currentPairing.pet,
-                    "after multiple attempts"
+                    "after multiple attempts",
                 );
                 return;
             }
@@ -568,7 +716,7 @@
                 currentPairing.owner,
                 {
                     level: extractedLevel,
-                }
+                },
             );
 
             // Update modal to show the new checkmark
@@ -580,7 +728,7 @@
             // Check if this pet needs stats collected
             const needsStats = !(await checkIfPetStatsComplete(
                 dateKey,
-                currentPairing.pet
+                currentPairing.pet,
             ));
 
             if (needsStats) {
@@ -588,7 +736,7 @@
                 // Use the already extracted level if we just collected it, otherwise extract it
                 if (extractedLevel === null) {
                     extractedLevel = await retryExtraction(() =>
-                        extractLevelForPet(currentPairing.pet)
+                        extractLevelForPet(currentPairing.pet),
                     );
                 }
                 await GM.setValue(TEMP_LEVEL_KEY, extractedLevel);
@@ -608,7 +756,7 @@
             } else {
                 // This pet already has stats, find next page to visit
                 console.log(
-                    `${currentPairing.pet} already has stats, finding next target...`
+                    `${currentPairing.pet} already has stats, finding next target...`,
                 );
                 const nextNav = await determineNextNavigation(index + 1);
 
@@ -628,7 +776,7 @@
 
                     if (
                         confirm(
-                            `Continue to ${nextPageType} for ${nextTarget}?`
+                            `Continue to ${nextPageType} for ${nextTarget}?`,
                         )
                     ) {
                         if (nextNav.stage === "userlookup") {
@@ -676,7 +824,7 @@
         const verifyPetPage = () => {
             try {
                 const contentModules = document.querySelectorAll(
-                    ".contentModuleContent"
+                    ".contentModuleContent",
                 );
                 for (const module of contentModules) {
                     const boldElements = module.querySelectorAll("b");
@@ -698,7 +846,7 @@
         if (!isCorrectPet) {
             console.error(
                 "Not on the correct pet page for",
-                currentPairing.pet
+                currentPairing.pet,
             );
             return;
         }
@@ -706,11 +854,11 @@
         const dateKey = getEndDateKey();
         const petStatsAlreadyComplete = await checkIfPetStatsComplete(
             dateKey,
-            currentPairing.pet
+            currentPairing.pet,
         );
         const alreadyComplete = await checkIfStatsComplete(
             dateKey,
-            currentPairing.pet
+            currentPairing.pet,
         );
 
         if (!petStatsAlreadyComplete) {
@@ -720,7 +868,7 @@
                 console.error(
                     "Could not extract stats for",
                     currentPairing.pet,
-                    "after multiple attempts"
+                    "after multiple attempts",
                 );
                 return;
             }
@@ -735,7 +883,7 @@
                 dateKey,
                 currentPairing.pet,
                 currentPairing.owner,
-                statsToSave
+                statsToSave,
             );
 
             // Update modal to show the new checkmark
@@ -1169,14 +1317,14 @@
             <div style="display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px; background: ${
                 theme.formBg
             }; border: 2px solid ${
-            theme.formBorder
-        }; border-radius: 8px; margin-bottom: 20px;">
+                theme.formBorder
+            }; border-radius: 8px; margin-bottom: 20px;">
                 <p style="color: ${
                     theme.labelText
                 }; font-size: 11pt; font-family: ${FONT_FAMILY}; margin: 0; text-align: center;">
                     Collect stats for all ${pairings.length} ${
-            pairings.length === 1 ? "pet" : "pets"
-        } with guided navigation
+                        pairings.length === 1 ? "pet" : "pets"
+                    } with guided navigation
                 </p>
                 <button id="kotb-collect-stats-btn" style="padding: 12px 24px; background: #28a745; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 12pt; font-weight: bold; font-family: ${FONT_FAMILY}; box-shadow: 0 2px 8px rgba(0,0,0,0.2); transition: transform 0.2s;">
                     📊 Guided Collection
@@ -1189,15 +1337,15 @@
             pairings.map(async (pairing) => {
                 const levelComplete = await checkIfLevelComplete(
                     dateKey,
-                    pairing.pet
+                    pairing.pet,
                 );
                 const petStatsComplete = await checkIfPetStatsComplete(
                     dateKey,
-                    pairing.pet
+                    pairing.pet,
                 );
                 const allComplete = await checkIfStatsComplete(
                     dateKey,
-                    pairing.pet
+                    pairing.pet,
                 );
 
                 const borderColor = allComplete ? "#28a745" : theme.itemBorder;
@@ -1228,7 +1376,7 @@
                     </div>
                 </div>
             `;
-            })
+            }),
         );
 
         const manualCollectionSection = `
@@ -1563,7 +1711,7 @@
         try {
             const compareData = await calculateCompareData(
                 endDateKey,
-                startDateKey
+                startDateKey,
             );
 
             if (compareData.length === 0) {
@@ -1588,101 +1736,111 @@
                         <td style="padding: 10px; color: ${
                             theme.ownerText
                         }; font-size: 10pt; font-weight: bold; font-family: ${FONT_FAMILY};">${
-                        data.owner
-                    }</td>
+                            data.owner
+                        }</td>
                         <td style="padding: 10px; color: ${
                             theme.petText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">${
-                        data.pet
-                    }</td>
+                            data.pet
+                        }</td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">
                             ${data.level}${
-                        data.levelGain !== null
-                            ? ` <span style="color: ${
-                                  data.levelGain >= 0 ? "#5cb85c" : "#d9534f"
-                              }; font-size: 9pt;">(${
-                                  data.levelGain >= 0 ? "+" : ""
-                              }${data.levelGain})</span>`
-                            : ""
-                    }
+                                data.levelGain !== null
+                                    ? ` <span style="color: ${
+                                          data.levelGain >= 0
+                                              ? "#5cb85c"
+                                              : "#d9534f"
+                                      }; font-size: 9pt;">(${
+                                          data.levelGain >= 0 ? "+" : ""
+                                      }${data.levelGain})</span>`
+                                    : ""
+                            }
                         </td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">
                             ${data.hp}${
-                        data.hpGain !== null
-                            ? ` <span style="color: ${
-                                  data.hpGain >= 0 ? "#5cb85c" : "#d9534f"
-                              }; font-size: 9pt;">(${
-                                  data.hpGain >= 0 ? "+" : ""
-                              }${data.hpGain})</span>`
-                            : ""
-                    }
+                                data.hpGain !== null
+                                    ? ` <span style="color: ${
+                                          data.hpGain >= 0
+                                              ? "#5cb85c"
+                                              : "#d9534f"
+                                      }; font-size: 9pt;">(${
+                                          data.hpGain >= 0 ? "+" : ""
+                                      }${data.hpGain})</span>`
+                                    : ""
+                            }
                         </td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">
                             ${data.strength}${
-                        data.strengthGain !== null
-                            ? ` <span style="color: ${
-                                  data.strengthGain >= 0 ? "#5cb85c" : "#d9534f"
-                              }; font-size: 9pt;">(${
-                                  data.strengthGain >= 0 ? "+" : ""
-                              }${data.strengthGain})</span>`
-                            : ""
-                    }
+                                data.strengthGain !== null
+                                    ? ` <span style="color: ${
+                                          data.strengthGain >= 0
+                                              ? "#5cb85c"
+                                              : "#d9534f"
+                                      }; font-size: 9pt;">(${
+                                          data.strengthGain >= 0 ? "+" : ""
+                                      }${data.strengthGain})</span>`
+                                    : ""
+                            }
                         </td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">
                             ${data.defence}${
-                        data.defenceGain !== null
-                            ? ` <span style="color: ${
-                                  data.defenceGain >= 0 ? "#5cb85c" : "#d9534f"
-                              }; font-size: 9pt;">(${
-                                  data.defenceGain >= 0 ? "+" : ""
-                              }${data.defenceGain})</span>`
-                            : ""
-                    }
+                                data.defenceGain !== null
+                                    ? ` <span style="color: ${
+                                          data.defenceGain >= 0
+                                              ? "#5cb85c"
+                                              : "#d9534f"
+                                      }; font-size: 9pt;">(${
+                                          data.defenceGain >= 0 ? "+" : ""
+                                      }${data.defenceGain})</span>`
+                                    : ""
+                            }
                         </td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">
                             ${data.movement}${
-                        data.movementGain !== null
-                            ? ` <span style="color: ${
-                                  data.movementGain >= 0 ? "#5cb85c" : "#d9534f"
-                              }; font-size: 9pt;">(${
-                                  data.movementGain >= 0 ? "+" : ""
-                              }${data.movementGain})</span>`
-                            : ""
-                    }
+                                data.movementGain !== null
+                                    ? ` <span style="color: ${
+                                          data.movementGain >= 0
+                                              ? "#5cb85c"
+                                              : "#d9534f"
+                                      }; font-size: 9pt;">(${
+                                          data.movementGain >= 0 ? "+" : ""
+                                      }${data.movementGain})</span>`
+                                    : ""
+                            }
                         </td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-weight: bold; font-family: ${FONT_FAMILY};">
                             ${data.total}${
-                        data.gain !== "-" && data.gain !== 0
-                            ? ` <span style="color: ${
-                                  data.gain >= 0 ? "#5cb85c" : "#d9534f"
-                              }; font-size: 9pt;">(${
-                                  data.gain >= 0 ? "+" : ""
-                              }${data.gain})</span>`
-                            : ""
-                    }
+                                data.gain !== "-" && data.gain !== 0
+                                    ? ` <span style="color: ${
+                                          data.gain >= 0 ? "#5cb85c" : "#d9534f"
+                                      }; font-size: 9pt;">(${
+                                          data.gain >= 0 ? "+" : ""
+                                      }${data.gain})</span>`
+                                    : ""
+                            }
                         </td>
                         <td style="padding: 10px; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-family: ${FONT_FAMILY};">${
-                        data.ranking
-                    }</td>
+                            data.ranking
+                        }</td>
                         <td style="padding: 10px; text-align: right; color: ${
                             theme.inputText
                         }; font-size: 10pt; font-weight: bold; font-family: ${FONT_FAMILY};">${
-                        data.points
-                    }</td>
+                            data.points
+                        }</td>
                     </tr>
                 `;
                 })
@@ -1773,8 +1931,8 @@
                     <button id="kotb-theme-toggle" title="Toggle theme" style="background: ${
                         theme.toggleBg
                     }; color: ${theme.toggleText}; border: 1px solid ${
-            theme.itemBorder
-        }; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 11pt; font-weight: bold;">
+                        theme.itemBorder
+                    }; border-radius: 4px; padding: 6px 12px; cursor: pointer; font-size: 11pt; font-weight: bold;">
                         ${themeName === "light" ? "🌙" : "☀️"}
                     </button>
                     <button id="kotb-close-btn" class="kotb-close-btn" title="Close modal" style="background: ${
@@ -1842,7 +2000,7 @@
                 // Find the pairing's index in the roster
                 const pairings = await getOwnerPetPairings();
                 const pairingIndex = pairings.findIndex(
-                    (p) => p.owner === owner
+                    (p) => p.owner === owner,
                 );
 
                 if (pairingIndex >= 0) {
@@ -1889,7 +2047,7 @@
 
         // Prevent scroll propagation on the scrollable list container
         const scrollableList = modal.querySelector(
-            '[style*="overflow-y: auto"]'
+            '[style*="overflow-y: auto"]',
         );
         if (scrollableList) {
             scrollableList.addEventListener(
@@ -1909,7 +2067,7 @@
                         e.preventDefault();
                     }
                 },
-                { passive: false }
+                { passive: false },
             );
         }
 
@@ -2007,7 +2165,8 @@
                 } else {
                     dateSelect.innerHTML = availableDates
                         .map(
-                            (date) => `<option value="${date}">${date}</option>`
+                            (date) =>
+                                `<option value="${date}">${date}</option>`,
                         )
                         .join("");
 
@@ -2028,7 +2187,7 @@
 
         // Column header click for sorting
         const columnHeaders = modal.querySelectorAll(
-            "#kotb-stats-table th[data-column]"
+            "#kotb-stats-table th[data-column]",
         );
         columnHeaders.forEach((header) => {
             header.addEventListener("click", async () => {
@@ -2051,10 +2210,10 @@
 
         // Compare tab listeners
         const compareEndDateSelect = modal.querySelector(
-            "#kotb-compare-end-date"
+            "#kotb-compare-end-date",
         );
         const compareStartDateSelect = modal.querySelector(
-            "#kotb-compare-start-date"
+            "#kotb-compare-start-date",
         );
         const downloadCsvBtn = modal.querySelector("#kotb-download-csv-btn");
 
@@ -2074,7 +2233,8 @@
                 } else {
                     const dateOptions = availableDates
                         .map(
-                            (date) => `<option value="${date}">${date}</option>`
+                            (date) =>
+                                `<option value="${date}">${date}</option>`,
                         )
                         .join("");
 
@@ -2100,7 +2260,7 @@
                         await loadCompareTable(
                             availableDates[0],
                             availableDates[1],
-                            theme
+                            theme,
                         );
                     }
                 }
@@ -2168,7 +2328,7 @@
                 try {
                     const compareData = await calculateCompareData(
                         endDate,
-                        startDate
+                        startDate,
                     );
 
                     if (compareData.length === 0) {
@@ -2178,7 +2338,7 @@
 
                     // Confirm before downloading
                     const confirmed = confirm(
-                        `Download CSV?\nStart Date: ${startDate}\nEnd Date: ${endDate}`
+                        `Download CSV?\nStart Date: ${startDate}\nEnd Date: ${endDate}`,
                     );
 
                     if (!confirmed) {
@@ -2188,7 +2348,7 @@
                     const csvString = generateCSV(compareData);
                     const filename = `KOTB_Export_${startDate.replace(
                         /\s+/g,
-                        "_"
+                        "_",
                     )}_to_${endDate.replace(/\s+/g, "_")}.csv`;
                     downloadCSV(csvString, filename);
                 } catch (error) {
@@ -2255,7 +2415,7 @@
 
         // Update sort arrows
         const headers = modal.querySelectorAll(
-            "#kotb-stats-table th[data-column]"
+            "#kotb-stats-table th[data-column]",
         );
         headers.forEach((header) => {
             const arrow = header.querySelector(".sort-arrow");
@@ -2281,10 +2441,10 @@
                 .map(
                     (stat, index) => `
                 <tr style="border-bottom: 1px solid ${theme.itemBorder}; ${
-                        index % 2 === 0
-                            ? `background: ${theme.itemBg};`
-                            : `background: ${theme.formBg};`
-                    }">
+                    index % 2 === 0
+                        ? `background: ${theme.itemBg};`
+                        : `background: ${theme.formBg};`
+                }">
                     <td style="padding: 10px; color: ${
                         theme.ownerText
                     }; font-size: 10pt; font-weight: bold; font-family: ${FONT_FAMILY};">${
@@ -2326,7 +2486,7 @@
                         stat.total
                     }</td>
                 </tr>
-            `
+            `,
                 )
                 .join("");
         }
@@ -2404,7 +2564,7 @@
                                     await updateModal();
                                 }
                             }
-                        }
+                        },
                     );
                 }
             } else if (url.includes("userlookup.phtml")) {
