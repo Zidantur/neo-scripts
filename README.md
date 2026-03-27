@@ -26,6 +26,9 @@ This works for Tampermonkey, Violentmonkey, and most other userscript managers.
 -   [ignore-user-posts.user.js](ignore-user-posts.user.js):
     -   **Ignore Users on Neoboards** – Hide posts from specific users on the Neopets Neoboards. Features a management panel to add or remove ignored users, and hides their posts.
 
+-   [shop-pricer.user.js](shop-pricer.user.js):
+    -   **Neopets Shop Pricer (itemdb)** – Gets prices for items in your Neopets shop using live price data from itemdb.com.br. Supports a configurable percentage of the itemdb price, highlights items that exceed the 999,999 NP shop cap.
+
 ## License
 
 See the LICENSE file for details. You are free to use, modify, and distribute these scripts as you wish.
