@@ -2,7 +2,7 @@
 // @name         Neopets Shop Pricer (itemdb)
 // @namespace    https://github.com/
 // @version      1.0
-// @description  Auto-prices your Neopets shop using itemdb.com.br prices
+// @description  Prices your Neopets shop using itemdb.com.br prices
 // @match        https://www.neopets.com/market.phtml*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -58,7 +58,7 @@
         style="margin:8px 4px; padding:5px 12px; cursor:pointer;
                background:#4d9cf0; color:#fff; border:none; border-radius:4px;
                font-weight:bold; font-size:13px;">
-        🏷️ Auto-Price with itemdb
+        🏷️ Price with itemdb
       </button>
     `);
 
@@ -93,7 +93,7 @@
 
     if (!Object.keys(idMap).length) {
       $status.text('No items found.');
-      $btn.prop('disabled', false).text('🏷️ Auto-Price with itemdb');
+      $btn.prop('disabled', false).text('🏷️ Price with itemdb');
       return;
     }
 
@@ -116,12 +116,12 @@
       onload(res) {
         if (res.status === 401) {
           $status.html('⚠️ Session expired — please <a href="https://itemdb.com.br" target="_blank">visit itemdb.com.br</a> then try again.');
-          $btn.prop('disabled', false).text('🏷️ Auto-Price with itemdb');
+          $btn.prop('disabled', false).text('🏷️ Price with itemdb');
           return;
         }
         if (res.status !== 200) {
           $status.text(`⚠️ API error (${res.status}) – try again.`);
-          $btn.prop('disabled', false).text('🏷️ Auto-Price with itemdb');
+          $btn.prop('disabled', false).text('🏷️ Price with itemdb');
           return;
         }
 
@@ -140,7 +140,7 @@
 
       onerror() {
         $status.text('⚠️ Network error – try again.');
-        $btn.prop('disabled', false).text('🏷️ Auto-Price with itemdb');
+        $btn.prop('disabled', false).text('🏷️ Price with itemdb');
       },
     });
   }
