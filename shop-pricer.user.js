@@ -1,8 +1,10 @@
 // ==UserScript==
 // @name         Neopets Shop Pricer (itemdb)
 // @namespace    https://github.com/
-// @version      1.0
+// @version      1.1
 // @description  Prices your Neopets shop using itemdb.com.br prices
+// @updateURL    https://github.com/Zidantur/neo-scripts/raw/refs/heads/main/shop-pricer.user.js
+// @downloadURL  https://github.com/Zidantur/neo-scripts/raw/refs/heads/main/shop-pricer.user.js
 // @match        https://www.neopets.com/market.phtml*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
@@ -202,6 +204,16 @@
       $status.show().html(html);
     };
 
+    const retryFetch = () => {
+      const retryOnReturn = () => {
+        if (document.visibilityState === 'visible') {
+          document.removeEventListener('visibilitychange', retryOnReturn);
+          fetchPrices($status, $row1, $row2);
+        }
+      };
+      document.addEventListener('visibilitychange', retryOnReturn);
+    };
+
     const pct   = Math.max(1, parseFloat($('#idb-pct').val()) || 100);
     const idMap = buildIdMap();
 
@@ -221,6 +233,7 @@
       onload(res) {
         if (res.status === 401) {
           showError('⚠️ Session expired — please <a href="https://itemdb.com.br" target="_blank">visit itemdb.com.br</a> then try again.');
+          retryFetch();
           return;
         }
         if (res.status !== 200) {
@@ -231,6 +244,7 @@
         // Warn during transition period if itemdb flags this request as non-compliant
         if (res.responseHeaders && res.responseHeaders.includes('x-itemdb-block')) {
           showError('⚠️ itemdb requires a session cookie — please <a href="https://itemdb.com.br" target="_blank">visit itemdb.com.br</a> once to authenticate.');
+          retryFetch();
           return;
         }
 
