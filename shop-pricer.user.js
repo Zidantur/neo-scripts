@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Neopets Shop Pricer (itemdb)
 // @namespace    https://github.com/
-// @version      1.1
+// @version      1.2
 // @description  Prices your Neopets shop using itemdb.com.br prices
 // @updateURL    https://github.com/Zidantur/neo-scripts/raw/refs/heads/main/shop-pricer.user.js
 // @downloadURL  https://github.com/Zidantur/neo-scripts/raw/refs/heads/main/shop-pricer.user.js
@@ -119,18 +119,18 @@
     const isEnabled = GM_getValue('idb-enabled', true);
     $('<style>#idb-toggle-wrap{display:inline-flex;align-items:center;gap:6px;cursor:pointer}'
     + '#idb-toggle-wrap input{display:none}'
-    + '#idb-toggle-track{width:34px;height:18px;background:#ccc;border-radius:9px;position:relative;transition:background .2s;cursor:pointer}'
-    + '#idb-toggle-track::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;background:#fff;border-radius:50%;transition:transform .2s}'
+    + '#idb-toggle-track{width:38px;height:20px;background:#ccc;border-radius:10px;position:relative;transition:background .2s;cursor:pointer}'
+    + '#idb-toggle-track::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s}'
     + '#idb-toggle:checked~#idb-toggle-track{background:#4caf50}'
-    + '#idb-toggle:checked~#idb-toggle-track::after{transform:translateX(16px)}'
+    + '#idb-toggle:checked~#idb-toggle-track::after{transform:translateX(18px)}'
     + '</style>').appendTo('head');
-    const $container = $('<div style="display:inline-block; border:1px solid #bbb; border-radius:6px; padding:6px 10px; margin:6px 0;"></div>');
+    const $container = $('<div style="display:inline-block; border:1px solid #bbb; border-radius:6px; padding:10px 14px; margin:8px 0; font-size:14px; line-height:1.4;"></div>');
 
-    const $toggleRow = $(`<div style="margin-bottom:6px;">
+    const $toggleRow = $(`<div style="margin-bottom:8px;">
       <label id="idb-toggle-wrap">
         <input type="checkbox" id="idb-toggle"${isEnabled ? ' checked' : ''}>
         <span id="idb-toggle-track"></span>
-        <span style="font-size:13px;">itemdb pricer</span>
+        <span style="font-size:14px;">itemdb pricer</span>
       </label>
     </div>`);
     $container.append($toggleRow);
@@ -147,18 +147,18 @@
 
     const savedMode   = GM_getValue('idb-mode', 'all');
     const $modeSelect = $(`
-      <select id="idb-mode" style="font-size:13px; padding:3px 6px; border-radius:4px;">
+      <select id="idb-mode" style="font-size:14px; padding:4px 8px; border-radius:4px;">
         <option value="all"${savedMode === 'all' ? ' selected' : ''}>All items</option>
         <option value="unpriced"${savedMode === 'unpriced' ? ' selected' : ''}>Unpriced only</option>
         <option value="none"${savedMode === 'none' ? ' selected' : ''}>None</option>
       </select>
     `);
-    const $modeLabel = $('<label for="idb-mode" style="font-size:13px; margin-left:3px;">apply mode</label>');
-    const $row1      = $('<div style="margin-bottom:4px;"></div>').append($modeSelect, $modeLabel);
+    const $modeLabel = $('<label for="idb-mode" style="font-size:14px; margin-left:5px;">apply mode</label>');
+    const $row1      = $('<div style="margin-bottom:6px;"></div>').append($modeSelect, $modeLabel);
 
     const savedPct  = GM_getValue('idb-pct', '100');
-    const $pctInput = $(`<input type="number" id="idb-pct" value="${savedPct}" min="1" max="999" step="1" style="width:52px; font-size:13px; text-align:center;">`);
-    const $pctLabel = $('<label for="idb-pct" style="font-size:13px; margin-left:3px;">% of itemdb price</label>');
+    const $pctInput = $(`<input type="number" id="idb-pct" value="${savedPct}" min="1" max="999" step="1" style="width:76px; font-size:14px; padding:4px 6px; text-align:center; box-sizing:border-box;">`);
+    const $pctLabel = $('<label for="idb-pct" style="font-size:14px; margin-left:5px;">% of itemdb price</label>');
     const $row2     = $('<div></div>').append($pctInput, $pctLabel);
 
     // Status replaces mode/% rows only when an error occurs
